@@ -1,4 +1,9 @@
-# Setup Guide — Sarvam (primary) and ElevenLabs (benchmark)
+# Setup Guide — managed-platform path (reference / benchmark)
+
+> **Note — this is not how the delivered demo runs.** The submitted demo is a self-built
+> pipeline (`app/` — see the README), chosen because the dashboard's test panel is not a
+> shareable link. This guide is kept as the production-deployment reference and for building
+> the ElevenLabs A/B benchmark. The rationale for the pivot is `04-design-rationale.md` §11.
 
 Click-by-click. Follow in order; do not skip the smoke test in step 6.
 

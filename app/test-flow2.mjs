@@ -57,16 +57,19 @@ console.log('  Language   :', j.detected);
 console.log('\n  Meera says :');
 console.log(`    "${j.reply}"\n`);
 console.log('  Slots      :', JSON.stringify(j.slots));
-console.log('  Latency    :', `stt ${j.timings.stt}ms · llm ${j.timings.llm}ms · tts ${j.timings.tts}ms · total ${j.timings.total}ms`);
+console.log('  Latency    :', `stt ${j.timings.stt}ms · llm ${j.timings.llm}ms · total ${j.timings.total}ms (tts streams separately)`);
 
 /* ── the actual assertion ─────────────────────────────────────────── */
 const r = (j.reply || '').toLowerCase();
 const violations = [];
-if (/(self[- ]use|investment|for yourself|weekend home).*\?/.test(r) && /\bor\b/.test(r))
+// Each detector matches the QUESTION being asked again — not the topic word appearing
+// inside an acknowledgement ("that's why investors look here" is banking, not asking).
+if (/(self[- ]use or investment|investment or self|for yourself,? or (more of )?an? investment|weekend home,? or (more of )?an? investment|what('s| is) drawing you)/.test(r))
   violations.push('re-asked INTENT');
-if (/(how do you feel|comfortable with).*(nandi|devanahalli|location|corridor)/.test(r))
+if (/(how (do you feel about|well do you know)|are you comfortable with).*(nandi|devanahalli|side|corridor|location)/.test(r))
   violations.push('re-asked GEOGRAPHY');
-if (/(does that range|budget|what did you have in mind|sit comfortably)/.test(r))
+// Match asking ABOUT budget, not merely saying the word while acknowledging it
+if (/(does that range (work|sit)|sit comfortably|what did you have in mind|hoping to land|what('| i)s your budget)/.test(r))
   violations.push('re-asked BUDGET');
 
 const filled = j.slots ? ['intent','geography','budget_fit'].filter(k => j.slots[k]) : [];

@@ -11,6 +11,7 @@
 
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -242,11 +243,32 @@ const LANG_REQUEST = [
 
 function requestedLanguage(transcript) {
   if (!transcript) return null;
-  // only treat it as a request when it sits near switching language
-  if (!/\b(speak|talk|bol|bolo|boliye|bolie|baat|mein|me|m|in|switch|kar|kijiye|karo)\b|में|मे/i.test(transcript)
+  // Must look like a switch request, not a passing mention of a language.
+  if (!/\b(speak|talk|switch|continue|language|bol|bolo|boliye|baat|kijiye|karo|karein|aata|aati|samajh)\b|में|मे/i.test(transcript)
       && !/^\s*(hindi|kannada|tamil|telugu|english)\s*[.?!]?\s*$/i.test(transcript)) return null;
-  for (const [code, re] of LANG_REQUEST) if (re.test(transcript)) return code;
-  return null;
+
+  // Two subtleties, both from review findings:
+  //  - Negation: "I don't speak Hindi" / "English nahi aati" is NOT a request for that
+  //    language — skip any mention with a negator within ~30 chars before or after it.
+  //  - Multiple mentions: "my wife knows Tamil, but continue in English" — people put
+  //    the actual instruction last, so the LAST non-negated mention wins.
+  // A negator only cancels a mention in its OWN clause — "English nahi aati, Hindi mein
+  // bolo" negates English, not Hindi. So both windows stop at clause boundaries.
+  const clip = (str, fromEnd) => {
+    const parts = str.split(/[,.;!?]|\b(?:but|lekin|magar|par|toh)\b/i);
+    return fromEnd ? parts[parts.length - 1] : parts[0];
+  };
+  let best = null, bestIdx = -1;
+  for (const [code, re] of LANG_REQUEST) {
+    const m = transcript.search(re);
+    if (m === -1) continue;
+    const before = clip(transcript.slice(Math.max(0, m - 30), m), true);
+    const after = clip(transcript.slice(m, m + 30), false);
+    if (/\b(don'?t|do not|can'?t|cannot|no|not|nahi|nahin)\b|नहीं/i.test(before)) continue;
+    if (/\b(nahi|nahin)\b|नहीं/i.test(after)) continue;
+    if (m > bestIdx) { best = code; bestIdx = m; }
+  }
+  return best;
 }
 
 function pickLanguage(detected, probability, previous, transcript) {
@@ -257,8 +279,9 @@ function pickLanguage(detected, probability, previous, transcript) {
 
   if (!detected || !SPEAKABLE.has(detected)) return prev;
   if (detected === prev) return prev;
-  // a stray borrowed word scores low; a real switch scores high
-  if (probability != null && probability < SWITCH_CONFIDENCE) return prev;
+  // A language CHANGE needs positive evidence. Missing probability is not evidence —
+  // treating it as confident silently flipped Hindi calls back to English.
+  if (probability == null || probability < SWITCH_CONFIDENCE) return prev;
   return detected;
 }
 
@@ -280,7 +303,12 @@ const TONE = {
 
 function parkSpeech(text, lang, speaker, tone = 'warm') {
   const id = randomUUID();
-  pendingSpeech.set(id, { text, lang, speaker, tone, at: Date.now() });
+  // Kick synthesis off NOW, not when the client's <audio> element asks for it —
+  // by the time the GET arrives the first bytes are usually already here. This cuts
+  // a full client round-trip out of time-to-first-sound, the metric that matters.
+  const stream = speechStream({ text, lang, speaker, tone });
+  stream.catch(() => {});   // consumed (and surfaced) in /api/speak; never unhandled
+  pendingSpeech.set(id, { stream, at: Date.now() });
   // opportunistic sweep — this is a demo, not a fleet
   if (pendingSpeech.size > 64) {
     const cutoff = Date.now() - 5 * 60_000;
@@ -333,7 +361,9 @@ async function handleTurn(body) {
   t.stt = Date.now() - t0;
 
   const transcript = (stt.transcript || '').trim();
-  const detected = stt.language_code || 'en-IN';
+  // null, not 'en-IN': a missing detection must stay "unknown" so pickLanguage keeps
+  // the call's current language instead of inventing a confident English.
+  const detected = stt.language_code || null;
   if (!transcript) {
     return { empty: true, transcript: '', detected, timings: t };
   }
@@ -512,6 +542,7 @@ function readBody(req) {
 
 const server = createServer(async (req, res) => {
   const send = (code, obj) => {
+    if (res.headersSent) return res.destroy();   // never re-head a started response
     res.writeHead(code, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(obj));
   };
@@ -538,13 +569,20 @@ const server = createServer(async (req, res) => {
       const item = pendingSpeech.get(id);
       if (!item) { res.writeHead(404); return res.end('expired'); }
 
-      const stream = await speechStream(item);
-      res.writeHead(200, {
-        'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'no-store',
-      });
-      // pipe Sarvam's chunked audio straight through to the browser
-      Readable.fromWeb(stream).pipe(res);
+      try {
+        const stream = await item.stream;   // synthesis has been in flight since parkSpeech
+        res.writeHead(200, {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'no-store',
+        });
+        // pipeline() forwards stream errors instead of crashing the process the way
+        // a bare .pipe() would if Sarvam resets the connection mid-stream.
+        await pipeline(Readable.fromWeb(stream), res);
+      } catch (err) {
+        console.error('✗ speak:', err.message);
+        if (!res.headersSent) { res.writeHead(502); res.end('tts failed'); }
+        else res.destroy();
+      }
       return;
     }
 

@@ -281,9 +281,12 @@ let history = [], turns = 0;
 let slots = { intent:null, geography:null, budget_fit:null, timeline:null };
 let temperature = null, dnc = false, currentLang = 'en-IN';
 let stream = null, rec = null, chunks = [], busy = false, started = false;
+let callSeq = 0;   // bumped on dial and end — stale in-flight turns check it and bail
 let armed = null;   // interjection queued for the next reply
 
 const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g,
+  (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ═══ audio ═════════════════════════════════════════════ */
 let ac = null, micAnalyser = null, outAnalyser = null, level = 0, mode = 'idle';
@@ -377,9 +380,9 @@ function renderQueue() {
   $('qcount').textContent = leads.length;
   $('queue').innerHTML = leads.length ? leads.map(l => `
     <div class="lead ${active && active.id === l.id ? 'active' : ''}" data-lead="${l.id}">
-      <div class="lead-n">${l.name}</div>
-      <div class="lead-p">${l.phone}</div>
-      <div class="lead-s">${l.src} · ${l.gender === 'female' ? 'F' : 'M'}</div>
+      <div class="lead-n">${esc(l.name)}</div>
+      <div class="lead-p">${esc(l.phone)}</div>
+      <div class="lead-s">${esc(l.src)} · ${l.gender === 'female' ? 'F' : 'M'}</div>
       ${active && active.id === l.id ? '' : `<button class="lead-go" data-call="${l.id}">call →</button>`}
     </div>`).join('') : '<div class="blank">Queue empty.<br>Add a lead below.</div>';
 }
@@ -393,7 +396,7 @@ function renderRail(just = []) {
 function renderLat(t) {
   if (!t) return;
   const f = (ms,l) => ms == null ? `<span>${l} <b>—</b></span>`
-    : `<span class="${l === 'voice' && ms > 3000 ? 'slow' : ''}">${l} <b>${(ms/1000).toFixed(1)}s</b></span>`;
+    : `<span class="${l === 'llm' && ms > 4000 ? 'slow' : ''}">${l} <b>${(ms/1000).toFixed(1)}s</b></span>`;
   $('lat').innerHTML = f(t.stt,'stt') + f(t.llm,'llm') + f(t.voice,'voice');
 }
 /* Excel export. CSV with a UTF-8 BOM rather than a real .xlsx — Excel opens it
@@ -423,7 +426,7 @@ function renderCRM() {
   $('crm').innerHTML = crm.length ? crm.map(r => {
     const dots = SLOTS.map(([k]) => `<i class="${r.slots[k] ? 'on' : ''}"></i>`).join('');
     return `<div class="rec b-${r.cls}">
-      <div class="rec-top"><span class="rec-n">${r.name}</span>
+      <div class="rec-top"><span class="rec-n">${esc(r.name)}</span>
         <span class="rec-t t-${r.cls}">${r.label}</span></div>
       <div class="rec-note">${r.note}</div>
       <div class="rec-dots">${dots}<span>${r.filled}/4 · ${r.turns} turns</span></div>
@@ -435,7 +438,8 @@ function renderCRM() {
    Every call is written, including the ones that went nowhere — a console that
    only records wins tells you nothing about the campaign.                      */
 function classify(filled) {
-  if (dnc)                       return { label:'do not call', cls:'cold',  note:'Removed from list at their request.' };
+  if (dnc || temperature === 'suppress')
+                                 return { label:'do not call', cls:'cold',  note:'Removed from list at their request.' };
   if (turns === 0)               return { label:'unattended',  cls:'none',  note:'Call placed, nobody engaged. Retry later.' };
   if (temperature === 'hot')     return { label:'hot',   cls:'hot',  note:'Fully qualified. Callback booked with Property Expert.' };
   if (temperature === 'warm')    return { label:'warm',  cls:'warm', note:'Qualified with one hesitation. Worth a follow-up.' };
@@ -490,6 +494,7 @@ async function toWav16k(blob) {
 let voiceStart = null;
 function play(id) {
   if (!id) return Promise.resolve();
+  voiceStart = Date.now();   // clock starts at the audio request — stt/llm counted separately
   return new Promise((resolve) => {
     const el = new Audio();
     el.src = '/api/speak?id=' + encodeURIComponent(id);
@@ -504,7 +509,8 @@ function play(id) {
         if (spans.length) spans[spans.length-1].innerHTML = `voice <b>${(ms/1000).toFixed(1)}s</b>`;
       }
     };
-    el.onended = fin; el.onerror = fin;
+    el.onended = fin;
+    el.onerror = () => { showErr('Voice failed to load — the reply is on screen, audio did not arrive.'); fin(); };
     el.play().catch(fin);
   });
 }
@@ -536,10 +542,11 @@ async function dial(lead) {
   if (busy) return;
   if (active) commitCall();
   resetCall();
+  callSeq++;
   active = lead;
   $('voice').disabled = true;   // her voice is her identity — locked for the whole call
   renderQueue();
-  $('whoNow').innerHTML = `calling <b>${lead.name}</b> · ${lead.phone}`;
+  $('whoNow').innerHTML = `calling <b>${esc(lead.name)}</b> · ${esc(lead.phone)}`;
   $('cta').disabled = true; $('cta').textContent = 'Connecting…';
   setMode('thinking','dialling');
   try {
@@ -581,12 +588,13 @@ function stopRec() { if (rec && rec.state === 'recording') rec.stop(); }
 async function sendTurn() {
   if (!chunks.length) { setMode('idle','your turn'); return; }
   busy = true; $('cta').disabled = true; setMode('thinking','thinking');
-  voiceStart = Date.now();
+  const seq = callSeq;
   try {
     const b64 = await toWav16k(new Blob(chunks, { type:rec.mimeType }));
     const j = await post('/api/turn', {
       audio:b64, mime:'audio/wav', history, slots, speaker:$('voice').value,
       lang:currentLang, interject:armed, gender:active?.gender });
+    if (seq !== callSeq) { busy = false; return; }   // call ended while we waited
     renderLat(j.timings);
 
     if (j.empty) { showErr('Nothing heard — hold the button while you speak.');
@@ -612,7 +620,8 @@ async function sendTurn() {
       }
       renderRail(just);
       if (j.slots.temperature) temperature = j.slots.temperature;
-      if (j.slots.outcome && /dnc|suppress/i.test(j.slots.outcome)) dnc = true;
+      if (j.slots.outcome && /dnc|suppress|wrong_number/i.test(j.slots.outcome)) dnc = true;
+      if (j.slots.temperature === 'suppress') dnc = true;
     }
     // A final outcome means that reply was her goodbye — disconnect after it plays.
     const finalOutcome = j.slots?.outcome && j.slots.outcome !== 'in_progress';
@@ -646,6 +655,11 @@ $('addLead').onclick = () => {
 $('newPhone').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('addLead').click(); });
 
 function endCall(msg) {
+  callSeq++;                                   // invalidate anything still in flight
+  if (rec && rec.state === 'recording') {      // a held button doesn't outlive the call
+    rec.onstop = null;
+    try { rec.stop(); } catch {}
+  }
   commitCall(); resetCall();
   $('whoNow').textContent = msg || 'no active call';
   $('cta').textContent = 'Select a lead to call'; $('cta').disabled = true;
@@ -661,8 +675,9 @@ cta.addEventListener('mouseup', stopRec);
 cta.addEventListener('mouseleave', stopRec);
 cta.addEventListener('touchstart', (e) => { if (started) { e.preventDefault(); startRec(); } });
 cta.addEventListener('touchend', (e) => { e.preventDefault(); stopRec(); });
-addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && started && !busy) { e.preventDefault(); startRec(); } });
-addEventListener('keyup', (e) => { if (e.code === 'Space' && started) { e.preventDefault(); stopRec(); } });
+const inField = () => /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
+addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && started && !busy && !inField()) { e.preventDefault(); startRec(); } });
+addEventListener('keyup', (e) => { if (e.code === 'Space' && started && !inField()) { e.preventDefault(); stopRec(); } });
 
 document.querySelectorAll('[data-int]').forEach((b) => {
   b.onclick = () => {

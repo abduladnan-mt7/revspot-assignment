@@ -237,3 +237,41 @@ volunteered. The knowledge base is defined as much by what the agent may never s
 may, because public data on this project is polluted and the project is RERA-registered. And we
 built the outbound *design* without the outbound *paperwork* — a deliberate, brief-sanctioned trade
 that costs live-line testing and buys the entire deadline.
+
+---
+
+## 11. Addendum — what changed after this document was written
+
+This document argued for the managed-platform path (§2) and against building the pipeline
+(the "self-built" column). We then built the pipeline ourselves. That reversal deserves an
+honest account, because the reasons are the interesting part.
+
+**Why we reversed.** The Sarvam dashboard's test panel sits behind Sarvam's login. The brief's
+first deliverable is *"a shareable link to the working bot"* — a link a judge can open cold.
+The dashboard route silently downgraded the submission to recordings-only. A self-built web
+app *is* the shareable link, so §2's cost-benefit flipped: the latency risk we avoided became
+cheaper than the deliverable we'd lose. §3 (skipping DLT telephony) still stands unchanged.
+
+**What building it surfaced that the platform would have hidden:**
+
+- **A docs-vs-reality gap:** Sarvam's STT docs list WebM as supported; the endpoint rejects
+  it. Browsers only record WebM. The fix — client-side decode → 16 kHz mono WAV — lands on
+  the sample rate their docs recommend anyway, so the workaround beats the documented path.
+- **Instruction position beats instruction wording.** The slot-emission instruction was
+  ignored at the tail of a 14K-character prompt and obeyed perfectly as its own system
+  message after the conversation history. Long prompts have an attention gradient: identity
+  survives at the top; per-turn behaviour needs recency.
+- **Derive decisions in code; let the model phrase them.** Language routing, gender
+  agreement, hard-blocker disqualification, and call termination are all decided
+  server-side from state we already hold, and handed to the model as directives. Every
+  behaviour we moved from "model judgment" to "code + model phrasing" stopped regressing.
+- **Perceived latency is a pipeline-shape property.** Blocking TTS cost 5–8s per turn.
+  Streaming it (raw chunked MP3 into a browser `<audio>`) plus starting synthesis eagerly at
+  reply time cut time-to-first-audio-byte from ~5s to ~0.03s on the greeting. Same models,
+  same vendor — the waiting was architectural.
+
+**Cost of the reversal, honestly:** a hand-rolled turn loop (~4–6s, LLM-dominated) is slower
+than a managed platform's (~1s), there is no barge-in, and telephony/campaign features the
+dashboard ships for free are out of scope. The managed path (§2, `05-setup-guide.md`) remains
+the right production choice; the self-built path is the right *submission*, and doubles as a
+transparent demonstration of how such a pipeline actually works.
