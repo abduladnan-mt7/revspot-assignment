@@ -1,0 +1,23 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Audio recordings (large binaries)
+flows/*.mp3
+flows/*.wav
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Scratch
+*.tmp
+node_modules/
+
+# Session memory / local state — never publish
+.remember/
+nul

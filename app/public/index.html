@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meera — DivyaSree</title>
+<style>
+  :root {
+    --bg:#08090b; --bg-lift:#0e1013; --panel:#0b0d10;
+    --ink:#f2f4f5; --ink-soft:#8b9499; --ink-faint:#4e565b;
+    --line:#1c2024; --line-lit:#2a3035;
+    --accent:#2dd4bf; --accent-dim:#0f6b64;
+    --live:#f0714f; --gold:#e0b355; --cool:#6aa9d8;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", -apple-system, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); font-size:14px; line-height:1.55;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  .app { height:100%; display:grid; grid-template-rows:auto 1fr; }
+
+  /* ── top bar ─────────────────────────────────────────── */
+  .bar { display:flex; align-items:center; justify-content:space-between;
+         gap:16px; padding:14px 22px; border-bottom:1px solid var(--line); }
+  .brand b { font-size:0.88rem; font-weight:600; letter-spacing:-0.01em; display:block; }
+  .brand span { font-family:var(--mono); font-size:0.58rem; text-transform:uppercase;
+                letter-spacing:0.18em; color:var(--ink-faint); }
+  .bar-right { display:flex; align-items:center; gap:9px; }
+  select { font-family:var(--mono); font-size:0.7rem; padding:6px 9px; border-radius:7px;
+           border:1px solid var(--line); background:var(--bg-lift); color:var(--ink-soft); cursor:pointer; }
+  .ghost { font-family:var(--mono); font-size:0.65rem; letter-spacing:0.06em;
+           padding:6px 11px; border-radius:7px; cursor:pointer;
+           border:1px solid var(--line); background:transparent; color:var(--ink-faint); }
+  .ghost:hover:not(:disabled) { color:var(--ink-soft); border-color:var(--line-lit); }
+  .ghost:disabled { opacity:.3; cursor:not-allowed; }
+  .ghost.armed { color:var(--gold); border-color:var(--gold); background:rgba(224,179,85,.09); }
+  .sep { width:1px; height:16px; background:var(--line); }
+
+  /* ── three columns ───────────────────────────────────── */
+  .cols { display:grid; grid-template-columns:270px 1fr 300px; min-height:0; }
+  @media (max-width: 1100px) { .cols { grid-template-columns:230px 1fr 250px; } }
+  @media (max-width: 900px)  { .cols { grid-template-columns:1fr; overflow:auto; } }
+
+  .col { min-height:0; display:flex; flex-direction:column; }
+  .col--l { border-right:1px solid var(--line); background:var(--panel); }
+  .col--r { border-left:1px solid var(--line); background:var(--panel); }
+
+  .colhead { display:flex; align-items:center; justify-content:space-between; gap:8px;
+             padding:14px 16px 10px; }
+  .colhead h2 { margin:0; font-family:var(--mono); font-size:0.62rem; font-weight:500;
+                text-transform:uppercase; letter-spacing:0.16em; color:var(--ink-faint); }
+  .count { font-family:var(--mono); font-size:0.6rem; color:var(--ink-faint);
+           border:1px solid var(--line); border-radius:999px; padding:2px 7px; }
+  .scroll { overflow-y:auto; flex:1; padding:0 12px 14px; }
+  .scroll::-webkit-scrollbar { width:7px; }
+  .scroll::-webkit-scrollbar-thumb { background:var(--line); border-radius:4px; }
+
+  /* ── lead cards ──────────────────────────────────────── */
+  .lead { border:1px solid var(--line); border-radius:9px; background:var(--bg-lift);
+          padding:11px 12px; margin-bottom:8px; cursor:pointer;
+          transition:border-color .18s, background .18s, transform .18s; }
+  .lead:hover:not(.done) { border-color:var(--line-lit); transform:translateX(2px); }
+  .lead.active { border-color:var(--accent-dim); background:rgba(45,212,191,.07);
+                 box-shadow:0 0 20px rgba(45,212,191,.08); }
+  .lead.done { opacity:.4; cursor:default; }
+  .lead-n { font-weight:600; font-size:0.85rem; }
+  .lead-p { font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft); }
+  .lead-s { font-family:var(--mono); font-size:0.58rem; text-transform:uppercase;
+            letter-spacing:0.11em; color:var(--ink-faint); margin-top:3px; }
+  .lead-go { margin-top:9px; width:100%; font-family:var(--mono); font-size:0.63rem;
+             letter-spacing:0.1em; text-transform:uppercase; padding:7px; border-radius:6px;
+             cursor:pointer; border:1px solid var(--accent-dim);
+             background:rgba(45,212,191,.1); color:var(--accent); }
+  .lead-go:hover { background:rgba(45,212,191,.2); }
+
+  .addbox { padding:0 12px 14px; display:flex; flex-direction:column; gap:7px; }
+  .addbox input { font-family:var(--sans); font-size:0.78rem; padding:8px 10px;
+                  border-radius:7px; border:1px solid var(--line);
+                  background:var(--bg-lift); color:var(--ink); }
+  .addbox input::placeholder { color:var(--ink-faint); }
+
+  /* ── centre stage ────────────────────────────────────── */
+  .stage { display:flex; flex-direction:column; align-items:center; justify-content:center;
+           gap:18px; padding:16px 24px; min-height:0; position:relative; }
+  .stage::before, .stage::after {
+    content:""; position:absolute; top:50%; width:22px; height:1px;
+    background:linear-gradient(90deg, var(--line), transparent); opacity:.9;
+  }
+  .stage::before { left:0; }
+  .stage::after  { right:0; transform:scaleX(-1); }
+
+  #orb { width:250px; height:250px; display:block; }
+  @media (max-height: 760px) { #orb { width:190px; height:190px; } }
+
+  .who-now { font-family:var(--mono); font-size:0.63rem; letter-spacing:0.16em;
+             text-transform:uppercase; color:var(--ink-faint); min-height:1em; }
+  .who-now b { color:var(--accent); font-weight:500; }
+  .state { font-family:var(--mono); font-size:0.66rem; text-transform:uppercase;
+           letter-spacing:0.2em; color:var(--ink-faint); height:1em; transition:color .3s; }
+  .state.live { color:var(--live); } .state.busy { color:var(--accent); }
+
+  .caption { max-width:520px; text-align:center; display:flex; flex-direction:column;
+             gap:9px; min-height:78px; }
+  .heard { font-family:var(--mono); font-size:0.72rem; color:var(--ink-faint);
+           opacity:0; transition:opacity .35s; }
+  .heard.show { opacity:1; }
+  .spoken { font-family:var(--serif); font-size:1.2rem; line-height:1.45; color:var(--ink);
+            text-wrap:balance; opacity:0; transform:translateY(4px);
+            transition:opacity .4s, transform .4s; }
+  .spoken.show { opacity:1; transform:none; }
+
+  .cta { font-size:0.86rem; font-weight:560; padding:12px 30px; border-radius:999px;
+         cursor:pointer; border:1px solid var(--accent-dim);
+         background:rgba(45,212,191,.09); color:var(--accent);
+         transition:background .16s, transform .16s, box-shadow .16s; }
+  .cta:hover:not(:disabled) { background:rgba(45,212,191,.17);
+         box-shadow:0 0 30px rgba(45,212,191,.18); }
+  .cta:active:not(:disabled) { transform:scale(.98); }
+  .cta:disabled { opacity:.3; cursor:not-allowed; }
+  .cta:focus-visible, .ghost:focus-visible, select:focus-visible,
+  .lead-go:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .hint { font-family:var(--mono); font-size:0.62rem; color:var(--ink-faint);
+          letter-spacing:0.05em; text-align:center; }
+  kbd { font-family:var(--mono); border:1px solid var(--line); border-bottom-width:2px;
+        border-radius:4px; padding:0 4px; color:var(--ink-soft); }
+
+  /* ── slot rail ───────────────────────────────────────── */
+  .rail { display:flex; justify-content:center; flex-wrap:wrap; gap:7px; }
+  .slot { display:flex; align-items:center; gap:7px; padding:6px 12px; border-radius:999px;
+          border:1px solid var(--line); background:var(--bg-lift);
+          font-family:var(--mono); font-size:0.65rem; color:var(--ink-faint);
+          transition:color .4s, border-color .4s, background .4s; }
+  .slot i { width:5px; height:5px; border-radius:50%; background:var(--ink-faint); flex:none;
+            transition:background .4s, box-shadow .4s; }
+  .slot b { font-weight:500; letter-spacing:0.09em; text-transform:uppercase; }
+  .slot em { font-style:normal; }
+  .slot.on { color:var(--ink-soft); border-color:var(--accent-dim); background:rgba(45,212,191,.06); }
+  .slot.on i { background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  .slot.on em { color:var(--accent); }
+  .slot.just { animation:pop .55s ease-out; }
+  @keyframes pop { 0%{transform:scale(1)} 38%{transform:scale(1.07)} 100%{transform:scale(1)} }
+
+  .metarow { display:flex; gap:8px; font-family:var(--mono); font-size:0.6rem;
+             color:var(--ink-faint); letter-spacing:0.08em; }
+  .badge { padding:3px 9px; border-radius:999px; border:1px solid var(--line);
+           background:var(--bg-lift); color:var(--ink-soft);
+           text-transform:uppercase; letter-spacing:0.12em;
+           transition:color .35s, border-color .35s; }
+  .badge.shift { color:var(--accent); border-color:var(--accent-dim); }
+  .lat { display:flex; gap:12px; }
+  .lat b { color:var(--ink-soft); font-weight:500; font-variant-numeric:tabular-nums; }
+  .lat .slow b { color:var(--live); }
+
+  /* ── mini CRM ────────────────────────────────────────── */
+  .rec { border:1px solid var(--line); border-left-width:3px; border-radius:8px;
+         background:var(--bg-lift); padding:10px 12px; margin-bottom:8px;
+         animation:slidein .4s ease-out; }
+  @keyframes slidein { from{opacity:0; transform:translateX(10px)} to{opacity:1; transform:none} }
+  .rec-top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .rec-n { font-weight:600; font-size:0.8rem; }
+  .rec-t { font-family:var(--mono); font-size:0.55rem; text-transform:uppercase;
+           letter-spacing:0.13em; padding:2px 7px; border-radius:999px;
+           border:1px solid currentColor; white-space:nowrap; }
+  .rec-note { font-size:0.72rem; color:var(--ink-soft); margin-top:5px; }
+  .rec-dots { display:flex; gap:4px; margin-top:7px; align-items:center; }
+  .rec-dots i { width:6px; height:6px; border-radius:50%; background:var(--line); }
+  .rec-dots i.on { background:var(--accent); }
+  .rec-dots span { font-family:var(--mono); font-size:0.58rem; color:var(--ink-faint);
+                   margin-left:5px; letter-spacing:0.08em; }
+  .t-hot   { color:var(--live);      border-color:var(--live) !important; }
+  .t-warm  { color:var(--gold);      border-color:var(--gold) !important; }
+  .t-cold  { color:var(--cool);      border-color:var(--cool) !important; }
+  .t-part  { color:var(--ink-soft);  border-color:var(--line-lit) !important; }
+  .t-none  { color:var(--ink-faint); border-color:var(--line) !important; }
+  .rec.b-hot{border-left-color:var(--live)} .rec.b-warm{border-left-color:var(--gold)}
+  .rec.b-cold{border-left-color:var(--cool)} .rec.b-part{border-left-color:var(--line-lit)}
+  .rec.b-none{border-left-color:var(--line)}
+
+  .blank { font-family:var(--mono); font-size:0.66rem; color:var(--ink-faint);
+           text-align:center; padding:26px 12px; line-height:1.8; }
+
+  .err { position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+         background:#1e1210; border:1px solid #5c2a1e; color:#f0a08a;
+         font-family:var(--mono); font-size:0.7rem; padding:9px 15px;
+         border-radius:8px; max-width:86vw; z-index:9; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slot.just, .rec { animation:none; }
+    .spoken, .heard, .lead { transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="bar">
+    <div class="brand"><b>Meera</b><span>DivyaSree · outbound console</span></div>
+    <div class="bar-right">
+      <select id="voice" title="Bulbul v3 voice">
+        <option value="shreya">shreya</option><option value="ritu">ritu</option>
+        <option value="kavya">kavya</option><option value="simran">simran</option>
+        <option value="suhani">suhani</option><option value="pooja">pooja</option>
+        <option value="roopa">roopa</option>
+      </select>
+      <span class="sep"></span>
+      <button class="ghost" data-int="ahem" disabled>ahem</button>
+      <button class="ghost" data-int="cough" disabled>cough</button>
+      <button class="ghost" data-int="sneeze" disabled>sneeze</button>
+      <span class="sep"></span>
+      <button class="ghost" id="hang" disabled>end call</button>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ══ LEFT: lead queue ══ -->
+    <div class="col col--l">
+      <div class="colhead"><h2>Lead queue</h2><span class="count" id="qcount">0</span></div>
+      <div class="scroll" id="queue"></div>
+      <div class="addbox">
+        <input id="newName" placeholder="Name" autocomplete="off">
+        <input id="newPhone" placeholder="Phone" autocomplete="off">
+        <select id="newGender" style="width:100%">
+          <option value="male">Male</option><option value="female">Female</option>
+        </select>
+        <button class="ghost" id="addLead" style="width:100%">+ add lead</button>
+      </div>
+    </div>
+
+    <!-- ══ CENTRE: the call ══ -->
+    <div class="col stage">
+      <div class="who-now" id="whoNow">no active call</div>
+      <canvas id="orb" width="250" height="250"></canvas>
+      <div class="state" id="state">idle</div>
+      <div class="caption">
+        <div class="heard" id="heard"></div>
+        <div class="spoken" id="spoken"></div>
+      </div>
+      <button class="cta" id="cta" disabled>Select a lead to call</button>
+      <div class="rail" id="rail"></div>
+      <div class="metarow">
+        <span class="badge" id="lang">english</span>
+        <span class="badge" id="tone">warm</span>
+        <span class="lat" id="lat"><span>stt <b>—</b></span><span>llm <b>—</b></span><span>voice <b>—</b></span></span>
+      </div>
+      <div class="hint" id="hint">pick a lead on the left to place a call</div>
+    </div>
+
+    <!-- ══ RIGHT: mini CRM ══ -->
+    <div class="col col--r">
+      <div class="colhead"><h2>Mini CRM</h2><div style="display:flex;gap:7px;align-items:center"><button class="ghost" id="export" disabled>export</button><span class="count" id="ccount">0</span></div></div>
+      <div class="scroll" id="crm">
+        <div class="blank">No calls yet.<br>Completed calls land here<br>with their outcome.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══ data ══════════════════════════════════════════════ */
+const SLOTS = [['intent','intent'],['geography','location'],['budget_fit','budget'],['timeline','timeline']];
+
+let leads = [
+  { id:1, name:'Rajesh Sharma',  phone:'+91 98450 11234', src:'Meta lead form', gender:'male' },
+  { id:2, name:'Vikram Mehta',   phone:'+91 99001 44521', src:'Google ads',     gender:'male' },
+  { id:3, name:'Anand Kumar',    phone:'+91 88670 23189', src:'Website form',   gender:'male' },
+  { id:4, name:'Priya Nair',     phone:'+91 97414 55620', src:'Meta lead form', gender:'female' },
+  { id:5, name:'Sunil Agarwal',  phone:'+91 98111 78432', src:'Referral',       gender:'male' },
+  { id:6, name:'Deepak Rao',     phone:'+971 50 442 8890', src:'Website · NRI', gender:'male' },
+];
+let crm = [], nextId = 7;
+
+let active = null;            // lead currently on the call
+let history = [], turns = 0;
+let slots = { intent:null, geography:null, budget_fit:null, timeline:null };
+let temperature = null, dnc = false, currentLang = 'en-IN';
+let stream = null, rec = null, chunks = [], busy = false, started = false;
+let armed = null;   // interjection queued for the next reply
+
+const $ = (id) => document.getElementById(id);
+
+/* ═══ audio ═════════════════════════════════════════════ */
+let ac = null, micAnalyser = null, outAnalyser = null, level = 0, mode = 'idle';
+function ctx() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+function makeAnalyser() { const a = ctx().createAnalyser(); a.fftSize = 512; a.smoothingTimeConstant = 0.75; return a; }
+function amplitude(an) {
+  if (!an) return 0;
+  const b = new Uint8Array(an.frequencyBinCount); an.getByteTimeDomainData(b);
+  let p = 0; for (let i = 0; i < b.length; i++) { const v = Math.abs(b[i]-128)/128; if (v > p) p = v; }
+  return Math.min(1, p * 2.4);
+}
+
+/* ═══ orb ═══════════════════════════════════════════════ */
+const cv = $('orb'), g = cv.getContext('2d');
+let W = 250, H = 250;
+function sizeCanvas() {
+  const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+  W = r.width; H = r.height; cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  g.setTransform(dpr,0,0,dpr,0,0);
+}
+const PAL = {
+  idle:      { core:[122,150,155], edge:[34,48,54] },
+  listening: { core:[240,113,79],  edge:[82,34,24] },
+  thinking:  { core:[45,212,191],  edge:[12,68,64] },
+  speaking:  { core:[90,235,214],  edge:[16,92,86] },
+};
+let cur = { core:[...PAL.idle.core], edge:[...PAL.idle.edge] };
+const lerp = (a,b,t) => a + (b-a)*t;
+const rgb = (c,a) => `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+
+function frame(t) {
+  requestAnimationFrame(frame);
+  const raw = mode === 'listening' ? amplitude(micAnalyser)
+            : mode === 'speaking'  ? amplitude(outAnalyser) : 0;
+  level = lerp(level, raw, raw > level ? 0.42 : 0.09);
+  const tgt = PAL[mode] || PAL.idle;
+  cur.core = cur.core.map((v,i) => lerp(v, tgt.core[i], 0.055));
+  cur.edge = cur.edge.map((v,i) => lerp(v, tgt.edge[i], 0.055));
+
+  g.clearRect(0,0,W,H);
+  const cx = W/2, cy = H/2;
+  const breathe = Math.sin(t*0.0011)*0.018 + (mode === 'thinking' ? Math.sin(t*0.005)*0.02 : 0);
+  const base = W*0.29*(1 + breathe + level*0.3);
+
+  const aura = g.createRadialGradient(cx,cy,base*0.55,cx,cy,base*2.05);
+  aura.addColorStop(0, rgb(cur.core, 0.16 + level*0.2));
+  aura.addColorStop(0.55, rgb(cur.edge, 0.07));
+  aura.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = aura; g.fillRect(0,0,W,H);
+
+  for (let ring = 0; ring < 3; ring++) {
+    const sc = 1 - ring*0.13, ph = t*(0.0007 + ring*0.00035) + ring*2.1;
+    g.beginPath();
+    for (let i = 0; i <= 120; i++) {
+      const a = (i/120)*Math.PI*2;
+      const wob = Math.sin(a*3+ph)*0.030 + Math.sin(a*5-ph*1.4)*0.019 + Math.sin(a*2+ph*0.7)*0.024;
+      const r = base*sc*(1 + wob + level*0.20*Math.sin(a*4 + t*0.004));
+      const x = cx + Math.cos(a)*r, y = cy + Math.sin(a)*r;
+      i ? g.lineTo(x,y) : g.moveTo(x,y);
+    }
+    g.closePath();
+    const body = g.createRadialGradient(cx-base*0.22, cy-base*0.26, base*0.06, cx, cy, base*sc);
+    body.addColorStop(0, rgb(cur.core, ring === 0 ? 0.95 : 0.30));
+    body.addColorStop(0.62, rgb(cur.core, ring === 0 ? 0.34 : 0.13));
+    body.addColorStop(1, rgb(cur.edge, ring === 0 ? 0.55 : 0.10));
+    g.fillStyle = body; g.fill();
+  }
+  const hl = g.createRadialGradient(cx-base*0.3, cy-base*0.36, 0, cx-base*0.3, cy-base*0.36, base*0.7);
+  hl.addColorStop(0, `rgba(255,255,255,${0.16 + level*0.14})`);
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = hl; g.beginPath(); g.arc(cx,cy,base,0,Math.PI*2); g.fill();
+}
+sizeCanvas(); addEventListener('resize', sizeCanvas); requestAnimationFrame(frame);
+
+/* ═══ render ════════════════════════════════════════════ */
+function setMode(m, label) {
+  mode = m; const s = $('state'); s.textContent = label;
+  s.className = 'state' + (m === 'listening' ? ' live' : (m === 'thinking' || m === 'speaking') ? ' busy' : '');
+}
+function showErr(msg) {
+  const o = document.querySelector('.err'); if (o) o.remove();
+  if (!msg) return;
+  const d = document.createElement('div'); d.className = 'err'; d.textContent = msg;
+  document.body.appendChild(d); setTimeout(() => d.remove(), 7000);
+}
+function renderQueue() {
+  $('qcount').textContent = leads.length;
+  $('queue').innerHTML = leads.length ? leads.map(l => `
+    <div class="lead ${active && active.id === l.id ? 'active' : ''}" data-lead="${l.id}">
+      <div class="lead-n">${l.name}</div>
+      <div class="lead-p">${l.phone}</div>
+      <div class="lead-s">${l.src} · ${l.gender === 'female' ? 'F' : 'M'}</div>
+      ${active && active.id === l.id ? '' : `<button class="lead-go" data-call="${l.id}">call →</button>`}
+    </div>`).join('') : '<div class="blank">Queue empty.<br>Add a lead below.</div>';
+}
+function renderRail(just = []) {
+  $('rail').innerHTML = SLOTS.map(([k,label]) => {
+    const v = slots[k];
+    return `<div class="slot ${v?'on':''} ${just.includes(k)?'just':''}">
+      <i></i><b>${label}</b><em>${v ? v.replace(/_/g,' ') : '—'}</em></div>`;
+  }).join('');
+}
+function renderLat(t) {
+  if (!t) return;
+  const f = (ms,l) => ms == null ? `<span>${l} <b>—</b></span>`
+    : `<span class="${l === 'voice' && ms > 3000 ? 'slow' : ''}">${l} <b>${(ms/1000).toFixed(1)}s</b></span>`;
+  $('lat').innerHTML = f(t.stt,'stt') + f(t.llm,'llm') + f(t.voice,'voice');
+}
+/* Excel export. CSV with a UTF-8 BOM rather than a real .xlsx — Excel opens it
+   natively, ₹ and Devanagari survive the BOM, and it costs no dependency. */
+function exportCRM() {
+  const cols = ['Name','Phone','Source','Outcome','Temperature','Intent','Location',
+                'Budget','Timeline','Slots filled','Turns','Notes','Call time'];
+  const esc = (v) => `"${String(v ?? '').replace(/"/g,'""')}"`;
+  const rows = crm.map(r => [
+    r.name, r.phone || '', r.src || '', r.label, r.cls,
+    r.slots.intent || '', r.slots.geography || '', r.slots.budget_fit || '', r.slots.timeline || '',
+    `${r.filled}/4`, r.turns, r.note, r.at,
+  ].map(esc).join(','));
+
+  const csv = '﻿' + [cols.map(esc).join(','), ...rows].join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `divyasree-wow-calls-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderCRM() {
+  $('ccount').textContent = crm.length;
+  $('export').disabled = crm.length === 0;
+  $('crm').innerHTML = crm.length ? crm.map(r => {
+    const dots = SLOTS.map(([k]) => `<i class="${r.slots[k] ? 'on' : ''}"></i>`).join('');
+    return `<div class="rec b-${r.cls}">
+      <div class="rec-top"><span class="rec-n">${r.name}</span>
+        <span class="rec-t t-${r.cls}">${r.label}</span></div>
+      <div class="rec-note">${r.note}</div>
+      <div class="rec-dots">${dots}<span>${r.filled}/4 · ${r.turns} turns</span></div>
+    </div>`;
+  }).join('') : '<div class="blank">No calls yet.<br>Completed calls land here<br>with their outcome.</div>';
+}
+
+/* ═══ CRM write ═════════════════════════════════════════
+   Every call is written, including the ones that went nowhere — a console that
+   only records wins tells you nothing about the campaign.                      */
+function classify(filled) {
+  if (dnc)                       return { label:'do not call', cls:'cold',  note:'Removed from list at their request.' };
+  if (turns === 0)               return { label:'unattended',  cls:'none',  note:'Call placed, nobody engaged. Retry later.' };
+  if (temperature === 'hot')     return { label:'hot',   cls:'hot',  note:'Fully qualified. Callback booked with Property Expert.' };
+  if (temperature === 'warm')    return { label:'warm',  cls:'warm', note:'Qualified with one hesitation. Worth a follow-up.' };
+  if (temperature === 'lukewarm')return { label:'lukewarm', cls:'warm', note:'One blocker, but open to future launches.' };
+  if (temperature === 'cold')    return { label:'cold',  cls:'cold', note:'Disqualified. Keep for future launches.' };
+  if (filled === 4)              return { label:'qualified', cls:'warm', note:'All four checkpoints filled, call ended before CTA.' };
+  if (filled > 0)                return { label:'part-qualified', cls:'part',
+                                          note:`Dropped mid-call. ${4-filled} checkpoint${4-filled>1?'s':''} still unknown.` };
+  return { label:'no info', cls:'none', note:'Spoke, but nothing qualifying was captured.' };
+}
+function commitCall() {
+  if (!active) return;
+  const filled = SLOTS.filter(([k]) => slots[k]).length;
+  const c = classify(filled);
+  crm.unshift({ name:active.name, phone:active.phone, src:active.src,
+                at:new Date().toLocaleString('en-IN', { hour12:true }),
+                slots:{...slots}, filled, turns, ...c });
+  leads = leads.filter(l => l.id !== active.id);
+  active = null;
+  renderCRM(); renderQueue();
+}
+
+/* ═══ speech ════════════════════════════════════════════ */
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length*2), v = new DataView(buf);
+  const w = (o,s) => { for (let i = 0; i < s.length; i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4, 36+samples.length*2, true); w(8,'WAVE');
+  w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,'data'); v.setUint32(40, samples.length*2, true);
+  let o = 44;
+  for (let i = 0; i < samples.length; i++, o += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(o, s < 0 ? s*0x8000 : s*0x7fff, true);
+  }
+  return buf;
+}
+async function toWav16k(blob) {
+  const d = await ctx().decodeAudioData(await blob.arrayBuffer());
+  const n = d.length, chs = d.numberOfChannels, mono = new Float32Array(n);
+  for (let c = 0; c < chs; c++) { const ch = d.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += ch[i]/chs; }
+  const outLen = Math.max(1, Math.round(n*16000/d.sampleRate)), out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const t = i*d.sampleRate/16000, i0 = Math.floor(t), i1 = Math.min(i0+1, n-1), f = t-i0;
+    out[i] = mono[i0]*(1-f) + mono[i1]*f;
+  }
+  const wav = new Uint8Array(encodeWav(out, 16000));
+  let s = '';
+  for (let i = 0; i < wav.length; i += 0x8000) s += String.fromCharCode.apply(null, wav.subarray(i, i+0x8000));
+  return btoa(s);
+}
+let voiceStart = null;
+function play(id) {
+  if (!id) return Promise.resolve();
+  return new Promise((resolve) => {
+    const el = new Audio();
+    el.src = '/api/speak?id=' + encodeURIComponent(id);
+    outAnalyser = makeAnalyser();
+    ctx().createMediaElementSource(el).connect(outAnalyser);
+    outAnalyser.connect(ctx().destination);
+    let done = false; const fin = () => { if (!done) { done = true; resolve(); } };
+    el.onplaying = () => {
+      if (voiceStart) {
+        const ms = Date.now() - voiceStart; voiceStart = null;
+        const spans = $('lat').querySelectorAll('span');
+        if (spans.length) spans[spans.length-1].innerHTML = `voice <b>${(ms/1000).toFixed(1)}s</b>`;
+      }
+    };
+    el.onended = fin; el.onerror = fin;
+    el.play().catch(fin);
+  });
+}
+async function post(path, body) {
+  const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+function say(who, text) {
+  if (who === 'meera') { $('spoken').textContent = text; $('spoken').classList.add('show'); }
+  else { $('heard').textContent = '“' + text + '”'; $('heard').classList.add('show'); }
+}
+
+/* ═══ call lifecycle ════════════════════════════════════ */
+function resetCall() {
+  history = []; turns = 0; temperature = null; dnc = false; currentLang = 'en-IN'; started = false;
+  slots = { intent:null, geography:null, budget_fit:null, timeline:null };
+  renderRail();
+  $('spoken').classList.remove('show'); $('heard').classList.remove('show');
+  $('lang').textContent = 'english'; $('lang').classList.remove('shift');
+  $('tone').textContent = 'warm'; $('tone').classList.remove('shift');
+  $('lat').innerHTML = '<span>stt <b>—</b></span><span>llm <b>—</b></span><span>voice <b>—</b></span>';
+  document.querySelectorAll('[data-int]').forEach(x => x.disabled = true);
+  $('hang').disabled = true;
+}
+
+async function dial(lead) {
+  if (busy) return;
+  if (active) commitCall();
+  resetCall();
+  active = lead;
+  $('voice').disabled = true;   // her voice is her identity — locked for the whole call
+  renderQueue();
+  $('whoNow').innerHTML = `calling <b>${lead.name}</b> · ${lead.phone}`;
+  $('cta').disabled = true; $('cta').textContent = 'Connecting…';
+  setMode('thinking','dialling');
+  try {
+    if (!stream) {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+      micAnalyser = makeAnalyser();
+      ctx().createMediaStreamSource(stream).connect(micAnalyser);
+    }
+    const j = await post('/api/greeting', { speaker:$('voice').value, name:lead.name, gender:lead.gender });
+    say('meera', j.reply);
+    history.push({ role:'assistant', content:j.reply });
+    setMode('speaking','speaking');
+    await play(j.speechId);
+    started = true;
+    $('cta').textContent = 'Hold to speak'; $('cta').disabled = false;
+    $('hang').disabled = false;
+    document.querySelectorAll('[data-int]').forEach(x => x.disabled = false);
+    $('hint').innerHTML = 'hold the button or <kbd>space</kbd> while you talk';
+    setMode('idle','your turn');
+  } catch (e) {
+    showErr(e.message); setMode('idle','idle');
+    $('cta').textContent = 'Select a lead to call';
+  }
+}
+
+function startRec() {
+  if (!started || busy || (rec && rec.state === 'recording')) return;
+  chunks = [];
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+  rec = new MediaRecorder(stream, { mimeType:mime });
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = sendTurn;
+  rec.start();
+  setMode('listening','listening');
+}
+function stopRec() { if (rec && rec.state === 'recording') rec.stop(); }
+
+async function sendTurn() {
+  if (!chunks.length) { setMode('idle','your turn'); return; }
+  busy = true; $('cta').disabled = true; setMode('thinking','thinking');
+  voiceStart = Date.now();
+  try {
+    const b64 = await toWav16k(new Blob(chunks, { type:rec.mimeType }));
+    const j = await post('/api/turn', {
+      audio:b64, mime:'audio/wav', history, slots, speaker:$('voice').value,
+      lang:currentLang, interject:armed, gender:active?.gender });
+    renderLat(j.timings);
+
+    if (j.empty) { showErr('Nothing heard — hold the button while you speak.');
+      setMode('idle','your turn'); busy = false; $('cta').disabled = false; return; }
+
+    turns++;
+    if (armed) { armed = null; document.querySelectorAll('[data-int]').forEach(x => x.classList.remove('armed')); }
+    say('you', j.transcript); say('meera', j.reply);
+    history.push({ role:'user', content:j.transcript }, { role:'assistant', content:j.reply });
+
+    if (j.lang) {
+      const sw = j.lang !== currentLang; currentLang = j.lang;
+      $('lang').textContent = (j.langName || j.lang).toLowerCase();
+      $('lang').classList.toggle('shift', sw);
+    }
+    if (j.tone) { $('tone').textContent = j.tone; $('tone').classList.toggle('shift', j.tone !== 'warm'); }
+
+    if (j.slots) {
+      const just = [];
+      for (const [k] of SLOTS) {
+        if (j.slots[k] && !slots[k]) just.push(k);
+        if (j.slots[k]) slots[k] = j.slots[k];
+      }
+      renderRail(just);
+      if (j.slots.temperature) temperature = j.slots.temperature;
+      if (j.slots.outcome && /dnc|suppress/i.test(j.slots.outcome)) dnc = true;
+    }
+    // A final outcome means that reply was her goodbye — disconnect after it plays.
+    const finalOutcome = j.slots?.outcome && j.slots.outcome !== 'in_progress';
+    setMode('speaking','speaking');
+    await play(j.speechId);
+    if (finalOutcome) {
+      busy = false;
+      endCall('call ended — logged to CRM');
+      return;
+    }
+    setMode('idle','your turn');
+  } catch (e) { showErr(e.message); setMode('idle','your turn'); }
+  busy = false; $('cta').disabled = false;
+}
+
+/* ═══ wiring ════════════════════════════════════════════ */
+$('queue').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-call]');
+  if (!b) return;
+  const lead = leads.find(l => l.id === +b.dataset.call);
+  if (lead) dial(lead);
+});
+
+$('addLead').onclick = () => {
+  const name = $('newName').value.trim(), phone = $('newPhone').value.trim();
+  if (!name) return;
+  leads.push({ id:nextId++, name, phone: phone || '—', src:'Manual entry', gender:$('newGender').value });
+  $('newName').value = ''; $('newPhone').value = '';
+  renderQueue();
+};
+$('newPhone').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('addLead').click(); });
+
+function endCall(msg) {
+  commitCall(); resetCall();
+  $('whoNow').textContent = msg || 'no active call';
+  $('cta').textContent = 'Select a lead to call'; $('cta').disabled = true;
+  $('voice').disabled = false;                    // voice unlocks between calls only
+  $('hint').textContent = 'pick a lead on the left to place a call';
+  setMode('idle','idle');
+}
+$('hang').onclick = () => endCall('no active call');
+
+const cta = $('cta');
+cta.addEventListener('mousedown', () => started && startRec());
+cta.addEventListener('mouseup', stopRec);
+cta.addEventListener('mouseleave', stopRec);
+cta.addEventListener('touchstart', (e) => { if (started) { e.preventDefault(); startRec(); } });
+cta.addEventListener('touchend', (e) => { e.preventDefault(); stopRec(); });
+addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && started && !busy) { e.preventDefault(); startRec(); } });
+addEventListener('keyup', (e) => { if (e.code === 'Space' && started) { e.preventDefault(); stopRec(); } });
+
+document.querySelectorAll('[data-int]').forEach((b) => {
+  b.onclick = () => {
+    // arm it: the NEXT reply weaves this in mid-sentence, the way people actually cough
+    armed = armed === b.dataset.int ? null : b.dataset.int;
+    document.querySelectorAll('[data-int]').forEach(x =>
+      x.classList.toggle('armed', x.dataset.int === armed));
+    $('hint').textContent = armed
+      ? armed + ' armed — it will land inside her next reply'
+      : 'hold the button or hold space while you talk';
+  };
+});
+
+$('export').onclick = exportCRM;
+renderQueue(); renderRail(); renderCRM();
+</script>
+</body>
+</html>
