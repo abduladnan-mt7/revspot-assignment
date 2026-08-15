@@ -493,16 +493,24 @@ function renderCRM() {
    Every call is written, including the ones that went nowhere — a console that
    only records wins tells you nothing about the campaign.                      */
 function classify(filled) {
+  // Someone haggling is in range and buying — the opposite of someone priced out.
+  // Flag it for the Property Expert rather than burying it in the temperature.
+  const haggle = slots.budget_fit === 'negotiating'
+    ? ' Asked for a discount — in range, wants a price conversation.' : '';
+
   if (dnc || temperature === 'suppress')
                                  return { label:'do not call', cls:'cold',  note:'Removed from list at their request.' };
   if (turns === 0)               return { label:'unattended',  cls:'none',  note:'Call placed, nobody engaged. Retry later.' };
-  if (temperature === 'hot')     return { label:'hot',   cls:'hot',  note:'Fully qualified. Callback booked with Property Expert.' };
-  if (temperature === 'warm')    return { label:'warm',  cls:'warm', note:'Qualified with one hesitation. Worth a follow-up.' };
-  if (temperature === 'lukewarm')return { label:'lukewarm', cls:'warm', note:'One blocker, but open to future launches.' };
+  if (temperature === 'hot')     return { label:'hot',   cls:'hot',  note:'Fully qualified. Callback booked with Property Expert.' + haggle };
+  if (temperature === 'warm')    return { label:'warm',  cls:'warm', note:'Qualified with one hesitation. Worth a follow-up.' + haggle };
+  if (temperature === 'lukewarm')return { label:'lukewarm', cls:'warm', note:'One blocker, but open to future launches.' + haggle };
   if (temperature === 'cold')    return { label:'cold',  cls:'cold', note:'Disqualified. Keep for future launches.' };
-  if (filled === 4)              return { label:'qualified', cls:'warm', note:'All four checkpoints filled, call ended before CTA.' };
+  if (slots.budget_fit === 'negotiating')
+                                 return { label:'wants discount', cls:'warm',
+                                          note:'In range but negotiating. Route to Property Expert for pricing.' };
+  if (filled === 4)              return { label:'qualified', cls:'warm', note:'All four checkpoints filled, call ended before CTA.' + haggle };
   if (filled > 0)                return { label:'part-qualified', cls:'part',
-                                          note:`Dropped mid-call. ${4-filled} checkpoint${4-filled>1?'s':''} still unknown.` };
+                                          note:`Dropped mid-call. ${4-filled} checkpoint${4-filled>1?'s':''} still unknown.` + haggle };
   return { label:'no info', cls:'none', note:'Spoke, but nothing qualifying was captured.' };
 }
 function commitCall() {
