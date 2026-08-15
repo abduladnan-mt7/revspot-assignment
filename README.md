@@ -55,9 +55,14 @@ mic → Saaras v3 (STT, 23 langs, auto-detect) → sarvam-105b-conversations (+ 
     → Bulbul v3 (TTS, streamed MP3, tone-modulated) → speaker
 ```
 
-Zero-dependency Node server (`app/server.js`), single-file client (`app/public/index.html`).
-Speech synthesis starts the instant the LLM replies and streams to the browser — first audio
-byte in ~30 ms from request.
+Zero dependencies. Agent logic lives in `api/_agent.js`; `app/server.js` (local) and the
+serverless functions in `api/` run identical code. Speech synthesis starts the instant the LLM
+replies and streams to the browser, and is addressed by an encoded URL rather than server
+state — so it works unchanged on serverless.
+
+**Deploying:** any Node host runs `npm start`. On Vercel the `api/` functions and `public/`
+static files are picked up automatically — set `SARVAM_API_KEY` in the project's environment
+variables.
 
 ## What it does beyond the brief
 
@@ -76,7 +81,10 @@ byte in ~30 ms from request.
 
 | Path | What |
 |---|---|
-| `app/` | The working demo (server, client, smoke test `node app/test-flow2.mjs`) |
+| `api/` | Agent core (`_agent.js`) + serverless handlers |
+| `app/server.js` | Local dev server · `npm start` |
+| `public/index.html` | The console UI |
+| `app/test-flow2.mjs` | Slot-filling smoke test · `npm test` |
 | `docs/01-knowledge-base.md` | Facts in four tiers — authoritative / corroborated / derived / **blocked** |
 | `docs/02-system-prompt.md` | **The system prompt deliverable** — identity, sales craft, pronunciation dictionary, state machine, objection library, 12 edge-case protocols, language policy, structured output |
 | `docs/03-conversation-flows.md` | Seven scripted test flows with pass/fail criteria |
