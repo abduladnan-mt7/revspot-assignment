@@ -16,7 +16,7 @@ the centre, a mini CRM on the right that fills as calls complete, with CSV expor
 git clone https://github.com/abduladnan-mt7/revspot-assignment
 cd revspot-assignment
 cp .env.example .env        # add your Sarvam API key (₹1,000 free at dashboard.sarvam.ai)
-node app/server.js          # Node 18+, zero dependencies
+npm start                   # Node 18+, zero dependencies
 ```
 
 Open **http://localhost:3000**. A guided tour runs on first load (reopen it any time with

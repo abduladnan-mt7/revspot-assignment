@@ -1,0 +1,14 @@
+{
+  "name": "revspot-assignment",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Meera — outbound AI voice agent qualifying leads for DivyaSree Whispers of the Wind",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node app/server.js",
+    "dev": "node app/server.js",
+    "test": "node app/test-flow2.mjs"
+  },
+  "license": "MIT"
+}

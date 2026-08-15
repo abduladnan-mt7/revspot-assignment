@@ -555,12 +555,12 @@ async function toWav16k(blob) {
   return btoa(s);
 }
 let voiceStart = null;
-function play(id) {
-  if (!id) return Promise.resolve();
+function play(url) {
+  if (!url) return Promise.resolve();
   voiceStart = Date.now();   // clock starts at the audio request — stt/llm counted separately
   return new Promise((resolve) => {
     const el = new Audio();
-    el.src = '/api/speak?id=' + encodeURIComponent(id);
+    el.src = url;
     outAnalyser = makeAnalyser();
     ctx().createMediaElementSource(el).connect(outAnalyser);
     outAnalyser.connect(ctx().destination);
@@ -623,7 +623,7 @@ async function dial(lead) {
     say('meera', j.reply);
     history.push({ role:'assistant', content:j.reply });
     setMode('speaking','speaking');
-    await play(j.speechId);
+    await play(j.speechUrl);
     started = true;
     $('cta').textContent = 'Hold to speak'; $('cta').disabled = false;
     $('hang').disabled = false;
@@ -690,7 +690,7 @@ async function sendTurn() {
     // A final outcome means that reply was her goodbye — disconnect after it plays.
     const finalOutcome = j.slots?.outcome && j.slots.outcome !== 'in_progress';
     setMode('speaking','speaking');
-    await play(j.speechId);
+    await play(j.speechUrl);
     if (finalOutcome) {
       busy = false;
       endCall('call ended — logged to CRM');
