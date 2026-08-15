@@ -19,9 +19,34 @@ cp .env.example .env        # add your Sarvam API key (₹1,000 free at dashboar
 node app/server.js          # Node 18+, zero dependencies
 ```
 
-Open **http://localhost:3000**, use headphones, pick a lead, hit **call →**.
-Hold the button (or Space) to speak; release to send. The call disconnects itself when
-Meera closes or disqualifies.
+Open **http://localhost:3000**. A guided tour runs on first load (reopen it any time with
+**guide**, top right).
+
+### Walkthrough — you play the customer, she calls you
+
+**Use headphones**, and allow the mic when the browser asks. Without headphones she hears her
+own voice and interrupts herself.
+
+1. **Press `call →` on Rajesh Sharma.** She greets him by name, with the right honorific.
+2. **Hold the button** (or hold `Space`) and say *"Yes speaking, go ahead."* Release to send.
+   The orb turns amber and swells while you talk, then pulses teal as she replies.
+3. **Then try each of these** — the on-screen hint suggests them as you go:
+
+| Say this | Watch for |
+|---|---|
+| *"I'm looking at it as an investment, somewhere near the airport, budget around one and a half crore."* | **Three checkpoint chips light at once** and she asks only about timeline — never re-asking what you just told her. This is the brief's hardest requirement. |
+| *"Hindi mein baat kijiye."* | Switches language mid-call, **same voice**, no announcement. Works for Kannada, Tamil and 8 more. |
+| *"What's the per square foot rate?"* | **₹7,700** — derived from the brief's own price band, so it can never contradict another number she quotes. |
+| *"Honestly I only have about forty lakh."* | Stops qualifying **immediately**, two warm sentences, hangs up. No pitch to someone who can't buy. |
+| *"Who gave you my number?"* | Offers to remove you from the list before you ask. Filed as **do-not-call**. |
+| *"What flooring do the villas come with?"* | Corrects the premise — it's a **land sale**, there are no villas. (Public listings for this project wrongly say otherwise.) |
+
+4. **She hangs up herself** once she's booked a callback or ruled you out — the call lands in
+   the **mini CRM** on the right with its outcome, filled-slot dots and turn count.
+5. **Press `export`** for the CRM as a spreadsheet.
+
+Other controls: `ahem` / `cough` / `sneeze` arm a disfluency that lands *inside* her next
+sentence; the voice picker is locked during a call and free between them.
 
 ## The stack
 

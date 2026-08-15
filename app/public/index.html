@@ -189,6 +189,47 @@
          font-family:var(--mono); font-size:0.7rem; padding:9px 15px;
          border-radius:8px; max-width:86vw; z-index:9; }
 
+  /* ── guided tour ─────────────────────────────────────── */
+  .tour-veil { position:fixed; inset:0; background:rgba(4,6,8,.78);
+               backdrop-filter:blur(2px); z-index:40; display:none; }
+  .tour-veil.on { display:block; }
+  .spotlight { position:relative; z-index:41;
+               box-shadow:0 0 0 1px var(--accent-dim), 0 0 46px rgba(45,212,191,.16);
+               border-radius:10px; }
+
+  .tour { position:fixed; z-index:42; width:min(430px, calc(100vw - 36px));
+          background:var(--bg-lift); border:1px solid var(--line-lit);
+          border-radius:13px; padding:20px 22px; display:none;
+          box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  .tour.on { display:block; }
+  .tour-step { font-family:var(--mono); font-size:0.58rem; letter-spacing:0.18em;
+               text-transform:uppercase; color:var(--accent); margin-bottom:7px; }
+  .tour h3 { margin:0 0 8px; font-size:1.05rem; font-weight:640; letter-spacing:-0.01em; }
+  .tour p { margin:0 0 10px; color:var(--ink-soft); font-size:0.85rem; line-height:1.6; }
+  .tour p:last-of-type { margin-bottom:14px; }
+  .tour b { color:var(--ink); font-weight:600; }
+  .tour-nav { display:flex; align-items:center; justify-content:space-between; gap:10px;
+              padding-top:13px; border-top:1px solid var(--line); }
+  .tour-dots { display:flex; gap:5px; }
+  .tour-dots i { width:5px; height:5px; border-radius:50%; background:var(--line-lit); }
+  .tour-dots i.on { background:var(--accent); }
+  .tour-btns { display:flex; gap:7px; }
+  .tour-go { font-family:var(--sans); font-size:0.78rem; font-weight:560;
+             padding:8px 17px; border-radius:8px; cursor:pointer;
+             border:1px solid var(--accent-dim); background:rgba(45,212,191,.12);
+             color:var(--accent); }
+  .tour-go:hover { background:rgba(45,212,191,.2); }
+
+  .say { display:flex; flex-direction:column; gap:7px; margin:2px 0 14px; }
+  .say div { font-family:var(--serif); font-size:0.92rem; color:var(--ink);
+             background:var(--panel); border-left:2px solid var(--accent);
+             border-radius:0 7px 7px 0; padding:8px 12px; }
+  .say div span { display:block; font-family:var(--mono); font-size:0.6rem;
+                  color:var(--ink-faint); letter-spacing:0.1em; text-transform:uppercase;
+                  margin-top:4px; }
+
+  .hint em { font-style:normal; color:var(--accent); }
+
   @media (prefers-reduced-motion: reduce) {
     .slot.just, .rec { animation:none; }
     .spoken, .heard, .lead { transition:none; }
@@ -212,6 +253,7 @@
       <button class="ghost" data-int="cough" disabled>cough</button>
       <button class="ghost" data-int="sneeze" disabled>sneeze</button>
       <span class="sep"></span>
+      <button class="ghost" id="guide">guide</button>
       <button class="ghost" id="hang" disabled>end call</button>
     </div>
   </div>
@@ -259,6 +301,19 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<div class="tour-veil" id="veil"></div>
+<div class="tour" id="tour">
+  <div class="tour-step" id="tourStep"></div>
+  <div id="tourBody"></div>
+  <div class="tour-nav">
+    <div class="tour-dots" id="tourDots"></div>
+    <div class="tour-btns">
+      <button class="ghost" id="tourSkip">skip</button>
+      <button class="tour-go" id="tourNext">Next</button>
+    </div>
   </div>
 </div>
 
@@ -565,7 +620,7 @@ async function dial(lead) {
     $('cta').textContent = 'Hold to speak'; $('cta').disabled = false;
     $('hang').disabled = false;
     document.querySelectorAll('[data-int]').forEach(x => x.disabled = false);
-    $('hint').innerHTML = 'hold the button or <kbd>space</kbd> while you talk';
+    nudge();
     setMode('idle','your turn');
   } catch (e) {
     showErr(e.message); setMode('idle','idle');
@@ -601,6 +656,7 @@ async function sendTurn() {
       setMode('idle','your turn'); busy = false; $('cta').disabled = false; return; }
 
     turns++;
+    nudge();
     if (armed) { armed = null; document.querySelectorAll('[data-int]').forEach(x => x.classList.remove('armed')); }
     say('you', j.transcript); say('meera', j.reply);
     history.push({ role:'user', content:j.transcript }, { role:'assistant', content:j.reply });
@@ -691,8 +747,113 @@ document.querySelectorAll('[data-int]').forEach((b) => {
   };
 });
 
+/* ═══ guided tour ═══════════════════════════════════════
+   A judge opening this cold doesn't know what to say to a sales agent, and a
+   voice demo with nothing to say to it stalls in five seconds. The tour ends on
+   concrete lines to try, each one aimed at a different capability.          */
+const TOUR = [
+  { el:null, title:'This is Meera, an outbound sales agent',
+    body:`<p>She calls people who enquired about <b>Whispers of the Wind</b> — DivyaSree's villa-plot
+          project near Nandi Hills — and works out in two or three minutes whether they're a real
+          buyer worth a Property Expert's time.</p>
+          <p>You're about to play the <b>customer</b>. She'll call you.</p>
+          <p><b>Use headphones</b>, and allow the mic when your browser asks — otherwise she hears
+          her own voice and talks over herself.</p>` },
+
+  { el:'.col--l', title:'1 · The lead queue',
+    body:`<p>Six leads, as they'd arrive from a Meta form or Google ad — name, number, source.</p>
+          <p>Press <b>call →</b> on any of them and the line opens. She greets them <b>by name</b>,
+          with the right honorific, and uses their gender for Hindi grammar.</p>` },
+
+  { el:'.stage', title:'2 · The live call',
+    body:`<p>The orb breathes when idle, turns <b>amber and swells with your voice</b> while you
+          speak, then pulses teal as she replies — driven by real audio, not animation.</p>
+          <p><b>Hold the button</b> (or hold <kbd>Space</kbd>) while you talk, release when done.</p>
+          <p>The chips underneath are the four qualification checkpoints. <b>Watch them light up</b>
+          — that's the whole engine, visible.</p>` },
+
+  { el:'.col--r', title:'3 · The mini CRM',
+    body:`<p>Every finished call lands here — <b>including the ones that went nowhere</b>. Hot, warm,
+          cold, part-qualified, unattended, do-not-call.</p>
+          <p>She hangs up by herself once she's booked a callback or ruled someone out. Export the
+          lot to Excel with <b>export</b>.</p>` },
+
+  { el:null, title:'What to try',
+    body:`<p>Call <b>Rajesh Sharma</b>, say “yes speaking, go ahead”, then try any of these:</p>
+          <div class="say">
+            <div>“I'm looking at it as an investment, somewhere near the airport, budget around one and a half crore.”
+              <span>three checkpoints fill from one sentence — she asks only about timeline</span></div>
+            <div>“Hindi mein baat kijiye.”
+              <span>switches language mid-call, same voice, no announcement</span></div>
+            <div>“Honestly I only have about forty lakh.”
+              <span>stops qualifying and lets you go warmly, in two sentences</span></div>
+            <div>“Who gave you my number?”
+              <span>offers to remove you from the list before you ask</span></div>
+          </div>
+          <p>Reopen this any time with <b>guide</b>, top right.</p>` },
+];
+
+let tourAt = 0;
+function paintTour() {
+  const s = TOUR[tourAt];
+  document.querySelectorAll('.spotlight').forEach(e => e.classList.remove('spotlight'));
+  $('tourStep').textContent = `step ${tourAt + 1} of ${TOUR.length}`;
+  $('tourBody').innerHTML = `<h3>${s.title}</h3>${s.body}`;
+  $('tourDots').innerHTML = TOUR.map((_, i) => `<i class="${i === tourAt ? 'on' : ''}"></i>`).join('');
+  $('tourNext').textContent = tourAt === TOUR.length - 1 ? 'Start calling' : 'Next';
+  $('tourSkip').style.visibility = tourAt === TOUR.length - 1 ? 'hidden' : 'visible';
+
+  const card = $('tour');
+  const target = s.el && window.innerWidth > 900 ? document.querySelector(s.el) : null;
+  if (target) {
+    target.classList.add('spotlight');
+    const r = target.getBoundingClientRect();
+    const w = Math.min(430, innerWidth - 36);
+    // sit beside the highlighted column, clamped inside the viewport
+    let left = r.right + 18;
+    if (left + w > innerWidth - 18) left = r.left - w - 18;
+    if (left < 18) left = Math.max(18, (innerWidth - w) / 2);
+    card.style.left = left + 'px';
+    card.style.top = Math.max(18, Math.min(r.top + 40, innerHeight - card.offsetHeight - 24)) + 'px';
+    card.style.transform = 'none';
+  } else {
+    card.style.left = '50%';
+    card.style.top = '50%';
+    card.style.transform = 'translate(-50%,-50%)';
+  }
+}
+function openTour(from = 0) {
+  tourAt = from; $('veil').classList.add('on'); $('tour').classList.add('on'); paintTour();
+}
+function closeTour() {
+  $('veil').classList.remove('on'); $('tour').classList.remove('on');
+  document.querySelectorAll('.spotlight').forEach(e => e.classList.remove('spotlight'));
+  try { localStorage.setItem('meera.toured', '1'); } catch {}
+}
+$('tourNext').onclick = () => { tourAt < TOUR.length - 1 ? (tourAt++, paintTour()) : closeTour(); };
+$('tourSkip').onclick = closeTour;
+$('guide').onclick = () => openTour(0);
+$('veil').onclick = closeTour;
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('tour').classList.contains('on')) closeTour(); });
+addEventListener('resize', () => { if ($('tour').classList.contains('on')) paintTour(); });
+
+/* Contextual nudge — the demo stalls if you don't know what to say next. */
+const NUDGE = [
+  `try: <em>“Yes speaking, go ahead.”</em>`,
+  `try: <em>“I'm looking at it as an investment, near the airport, budget around one and a half crore.”</em>`,
+  `try: <em>“Hindi mein baat kijiye.”</em>`,
+  `try: <em>“What's the per square foot rate?”</em>`,
+];
+function nudge() {
+  if (!started) return;
+  $('hint').innerHTML = turns < NUDGE.length
+    ? NUDGE[turns]
+    : 'hold the button or <kbd>space</kbd> while you talk';
+}
+
 $('export').onclick = exportCRM;
 renderQueue(); renderRail(); renderCRM();
+try { if (!localStorage.getItem('meera.toured')) setTimeout(() => openTour(0), 550); } catch {}
 </script>
 </body>
 </html>
