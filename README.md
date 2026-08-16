@@ -10,7 +10,10 @@ the centre, a mini CRM on the right that fills as calls complete, with CSV expor
 
 ---
 
-## Run it
+**▶ Live demo: https://revspot-assignment-five.vercel.app**
+*(Chrome or Edge, headphones on, allow the mic. A guided tour runs on first load.)*
+
+## Run it locally
 
 ```bash
 git clone https://github.com/abduladnan-mt7/revspot-assignment
