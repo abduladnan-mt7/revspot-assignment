@@ -105,7 +105,7 @@ The demo calls a metered API, so the deployed build protects itself:
 | **Rate limit** | `RATE_LIMIT_PER_HOUR` turns per IP (default 40 ≈ 4 full calls). Returns 429 with an explanation, never a silent failure. |
 | **Usage tracking** | Every call and turn logs `TRACK {...}` with IP, city/region/country (from Vercel's edge headers — no third-party lookup), language, outcome and latency. |
 | **Dashboard** | Open `/stats.html` and enter `STATS_TOKEN`. Sent as an `x-stats-token` header and compared in constant time — never in the URL, where it would land in access logs and browser history. |
-| **Storage** | None required. Logs-only by default. Set `UPSTASH_REDIS_REST_URL` / `_TOKEN` to get shared counters and a persisted 500-visit history. |
+| **Storage** | None required — logs-only by default. For persisted history and shared counters, set either `UPSTASH_REDIS_REST_URL`/`_TOKEN` (REST) or `REDIS_URL` (self-hosted, RESP over TCP). Both clients are hand-written, so the repo stays dependency-free. |
 
 Geolocation resolves to **city level**; an IP does not yield a street address. The page
 carries a short notice that usage is logged.
