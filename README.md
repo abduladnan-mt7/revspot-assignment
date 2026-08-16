@@ -93,6 +93,20 @@ variables.
 | `deliverables/` | System prompt as PDF |
 | `site/` | Submission microsite |
 
+## Running it publicly
+
+The demo calls a metered API, so the deployed build protects itself:
+
+| | |
+|---|---|
+| **Rate limit** | `RATE_LIMIT_PER_HOUR` turns per IP (default 40 ≈ 4 full calls). Returns 429 with an explanation, never a silent failure. |
+| **Usage tracking** | Every call and turn logs `TRACK {...}` with IP, city/region/country (from Vercel's edge headers — no third-party lookup), language, outcome and latency. |
+| **Dashboard** | `GET /api/stats?token=$STATS_TOKEN` — token-gated, because visitor IPs should not be public. |
+| **Storage** | None required. Logs-only by default. Set `UPSTASH_REDIS_REST_URL` / `_TOKEN` to get shared counters and a persisted 500-visit history. |
+
+Geolocation resolves to **city level**; an IP does not yield a street address. The page
+carries a short notice that usage is logged.
+
 ## Honest limitations
 
 No live telephony (TRAI/DLT registration is days-to-weeks of paperwork; the brief permits a

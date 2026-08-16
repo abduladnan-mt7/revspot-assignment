@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import {
   handleTurn, handleGreeting, speechStream, decodeSpeech,
 } from '../api/_agent.js';
+import { clientMeta, rateLimit, track, readStats } from '../api/_track.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = process.env.PORT || 3000;
@@ -49,12 +50,27 @@ const server = createServer(async (req, res) => {
       return res.end(readFileSync(join(ROOT, 'public', 'index.html')));
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/turn') {
-      return send(200, await handleTurn(JSON.parse(await readBody(req))));
+    if (req.method === 'POST' && (url.pathname === '/api/turn' || url.pathname === '/api/greeting')) {
+      const isCall = url.pathname === '/api/greeting';
+      const meta = clientMeta(req);
+      const gate = await rateLimit(meta.ip, isCall ? 2 : 1);
+      if (!gate.ok) {
+        await track('rate_limited', meta, { used: gate.used });
+        return send(429, { error: `Demo limit reached (${gate.max} turns/hour).` });
+      }
+      const payload = JSON.parse(await readBody(req));
+      const out = isCall ? await handleGreeting(payload) : await handleTurn(payload);
+      await track(isCall ? 'call_started' : 'turn', meta, {
+        lang: out.lang, outcome: out.slots?.outcome, ms: out.timings?.total,
+      });
+      return send(200, out);
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/greeting') {
-      return send(200, await handleGreeting(JSON.parse(await readBody(req))));
+    if (req.method === 'GET' && url.pathname === '/api/stats') {
+      const token = process.env.STATS_TOKEN;
+      if (!token) return send(503, { error: 'STATS_TOKEN not set' });
+      if (url.searchParams.get('token') !== token) return send(401, { error: 'unauthorized' });
+      return send(200, await readStats());
     }
 
     if (req.method === 'GET' && url.pathname === '/api/speak') {

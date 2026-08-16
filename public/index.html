@@ -40,6 +40,9 @@
   .ghost:disabled { opacity:.3; cursor:not-allowed; }
   .ghost.armed { color:var(--gold); border-color:var(--gold); background:rgba(224,179,85,.09); }
   .sep { width:1px; height:16px; background:var(--line); }
+  .privacy { font-family:var(--mono); font-size:0.55rem; letter-spacing:0.1em;
+             text-transform:uppercase; color:var(--ink-faint); }
+  @media (max-width: 900px) { .privacy { display:none; } }
 
   /* ── three columns ───────────────────────────────────── */
   .cols { display:grid; grid-template-columns:270px 1fr 300px; min-height:0; }
@@ -241,6 +244,7 @@
 
   <div class="bar">
     <div class="brand"><b>Meera</b><span>DivyaSree · outbound console</span></div>
+    <span class="privacy">demo · usage is logged (IP + city) to monitor API cost</span>
     <div class="bar-right">
       <select id="voice" title="Bulbul v3 voice">
         <option value="shreya">shreya</option><option value="ritu">ritu</option>
