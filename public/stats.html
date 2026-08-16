@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Meera — usage</title>
+<style>
+  :root { --bg:#08090b; --lift:#0e1013; --ink:#f2f4f5; --soft:#8b9499; --faint:#4e565b;
+          --line:#1c2024; --accent:#2dd4bf; --live:#f0714f;
+          --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+          --sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+         font-size:14px; line-height:1.55; padding:32px 22px 60px; }
+  .wrap { max-width:900px; margin:0 auto; }
+  h1 { font-size:1.15rem; margin:0 0 4px; font-weight:640; }
+  .sub { font-family:var(--mono); font-size:0.6rem; letter-spacing:0.18em;
+         text-transform:uppercase; color:var(--faint); margin-bottom:26px; }
+  .gate { display:flex; gap:9px; flex-wrap:wrap; }
+  input { font-family:var(--mono); font-size:0.8rem; padding:10px 12px; border-radius:8px;
+          border:1px solid var(--line); background:var(--lift); color:var(--ink); min-width:260px; }
+  button { font-family:var(--sans); font-size:0.82rem; font-weight:560; padding:10px 20px;
+           border-radius:8px; cursor:pointer; border:1px solid #0f6b64;
+           background:rgba(45,212,191,.12); color:var(--accent); }
+  button:hover { background:rgba(45,212,191,.2); }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+           gap:12px; margin:22px 0; }
+  .card { border:1px solid var(--line); border-radius:10px; background:var(--lift); padding:15px 17px; }
+  .n { font-family:var(--mono); font-size:1.6rem; font-weight:600; color:var(--accent);
+       font-variant-numeric:tabular-nums; }
+  .l { font-size:0.76rem; color:var(--soft); }
+  table { border-collapse:collapse; width:100%; font-size:0.8rem; }
+  th,td { text-align:left; padding:8px 10px 8px 0; border-bottom:1px solid var(--line);
+          vertical-align:top; }
+  th { font-family:var(--mono); font-size:0.6rem; text-transform:uppercase;
+       letter-spacing:0.12em; color:var(--faint); font-weight:500; }
+  td.m { font-family:var(--mono); color:var(--soft); }
+  .note { color:var(--faint); font-size:0.8rem; margin-top:18px; }
+  .err { color:var(--live); font-family:var(--mono); font-size:0.78rem; margin-top:12px; }
+  .scroll { overflow-x:auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Meera — demo usage</h1>
+  <div class="sub">private · token required</div>
+
+  <div class="gate" id="gate">
+    <input id="tok" type="password" placeholder="STATS_TOKEN" autocomplete="off">
+    <button id="go">View</button>
+  </div>
+  <div id="err"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+/* The token travels in a header, never in the URL — a secret in a query string ends up
+   in access logs, proxy logs and browser history. Held in sessionStorage only, so it
+   dies with the tab. */
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g,
+  (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function load(token) {
+  $('err').textContent = '';
+  let r;
+  try {
+    r = await fetch('/api/stats', { headers: { 'x-stats-token': token } });
+  } catch (e) {
+    $('err').className = 'err'; $('err').textContent = 'Network error: ' + e.message; return;
+  }
+  const j = await r.json().catch(() => ({ error: 'bad response' }));
+  if (!r.ok) {
+    $('err').className = 'err';
+    $('err').textContent = r.status === 401 ? 'Wrong token.' : (j.error || 'Error ' + r.status);
+    sessionStorage.removeItem('meera.stats');
+    return;
+  }
+  sessionStorage.setItem('meera.stats', token);
+  $('gate').style.display = 'none';
+  render(j);
+}
+
+function render(j) {
+  if (j.backend === 'logs-only') {
+    $('out').innerHTML = `<div class="card"><div class="l">${esc(j.note)}</div></div>`;
+    return;
+  }
+  const rows = (j.recent || []).map((v) => `<tr>
+      <td class="m">${esc((v.at || '').replace('T',' ').slice(0,19))}</td>
+      <td class="m">${esc(v.event)}</td>
+      <td class="m">${esc(v.ip)}</td>
+      <td>${esc(v.where)}</td>
+      <td class="m">${esc(v.lang || '')}</td>
+      <td class="m">${esc(v.outcome || '')}</td>
+    </tr>`).join('');
+
+  $('out').innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="n">${j.unique_visitors ?? 0}</div><div class="l">unique visitors</div></div>
+      <div class="card"><div class="n">${j.calls_started ?? 0}</div><div class="l">calls started</div></div>
+      <div class="card"><div class="n">${j.turns_spoken ?? 0}</div><div class="l">turns spoken</div></div>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>when (utc)</th><th>event</th><th>ip</th><th>where</th><th>lang</th><th>outcome</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="6" class="m">nothing recorded yet</td></tr>'}</tbody>
+    </table></div>
+    <div class="note">Last 100 events. Location resolves to city level from Vercel's edge
+    headers — an IP does not give a street address.</div>`;
+}
+
+$('go').onclick = () => load($('tok').value.trim());
+$('tok').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('go').click(); });
+const saved = sessionStorage.getItem('meera.stats');
+if (saved) load(saved);
+</script>
+</body>
+</html>

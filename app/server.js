@@ -17,6 +17,7 @@ import {
   handleTurn, handleGreeting, speechStream, decodeSpeech,
 } from '../api/_agent.js';
 import { clientMeta, rateLimit, track, readStats } from '../api/_track.js';
+import { tokenOk } from '../api/stats.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = process.env.PORT || 3000;
@@ -50,6 +51,11 @@ const server = createServer(async (req, res) => {
       return res.end(readFileSync(join(ROOT, 'public', 'index.html')));
     }
 
+    if (req.method === 'GET' && url.pathname === '/stats.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(readFileSync(join(ROOT, 'public', 'stats.html')));
+    }
+
     if (req.method === 'POST' && (url.pathname === '/api/turn' || url.pathname === '/api/greeting')) {
       const isCall = url.pathname === '/api/greeting';
       const meta = clientMeta(req);
@@ -67,9 +73,9 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/stats') {
-      const token = process.env.STATS_TOKEN;
-      if (!token) return send(503, { error: 'STATS_TOKEN not set' });
-      if (url.searchParams.get('token') !== token) return send(401, { error: 'unauthorized' });
+      // Header, not query string — a secret in a URL is written to every access log.
+      if (!process.env.STATS_TOKEN) return send(503, { error: 'STATS_TOKEN not set' });
+      if (!tokenOk(req.headers['x-stats-token'])) return send(401, { error: 'unauthorized' });
       return send(200, await readStats());
     }
 
